@@ -16,6 +16,7 @@ library(randomForest)
 library(e1071)
 library(tidyverse)
 library(ggthemes)
+library(MASS)
 
 ```
 
@@ -156,30 +157,14 @@ varImp(rf_train,scale = FALSE)
 ```
 
 ```{r}
+df_data <- csdata1 #%>% select(1:30,42)
 df_rf <- data.frame()
-for (i in 1:100) {
+for (i in 1:10) {
   train_indx <- sample(1:nrow(df_data), round(.7*nrow(df_data)))
   train_rf <- df_data[train_indx,]
   test_nb <- df_data[-train_indx,]
   
-  rf <- randomForest(Attrition~.,data = train_rf, mtry=16,ntree=300, cutoff = c(.71,.15))
-  rf_predict <- predict(rf,test_nb)
-  rf_cm <- confusionMatrix(rf_predict,test_nb$Attrition)
-  rf_specs <- data.frame("Accuracy"=rf_cm$overall[1],"Sensitivity"=rf_cm$byClass[1],"Specificity"=rf_cm$byClass[2])
-  df_rf <- rbind(df_rf,rf_specs)
-}
-df_rf
-
-summary(df_rf)
-```
-```{r}
-df_rf <- data.frame()
-for (i in 1:100) {
-  train_indx <- sample(1:nrow(df_data), round(.7*nrow(df_data)))
-  train_rf <- df_data[train_indx,]
-  test_nb <- df_data[-train_indx,]
-  
-  rf <- randomForest(Attrition~.,data = train_rf, mtry=16,ntree=300, cutoff = c(.71,.15))
+  rf <- randomForest(Attrition~.,data = train_rf, mtry=16,ntree=300, cutoff = c(.68,.15))
   rf_predict <- predict(rf,test_nb)
   rf_cm <- confusionMatrix(rf_predict,test_nb$Attrition)
   rf_specs <- data.frame("Accuracy"=rf_cm$overall[1],"Sensitivity"=rf_cm$byClass[1],"Specificity"=rf_cm$byClass[2])
@@ -193,7 +178,7 @@ summary(df_rf)
 ```{r}
 df_data <- csdata1 %>% select(1:30,42)
 df_rf <- data.frame()
-for (i in 1:100) {
+for (i in 1:10) {
   train_indx <- sample(1:nrow(df_data), round(.7*nrow(df_data)))
   train_rf <- df_data[train_indx,]
   test_nb <- df_data[-train_indx,]
@@ -207,5 +192,44 @@ for (i in 1:100) {
 df_rf
 
 summary(df_rf)
+```
+
+```{r}
+#regression for salary
+lm_data <- csdata1 %>% select(-fMonthlyIncome)
+lm_all <- lm(MonthlyIncome~.,lm_data)
+stepAIC(lm_all,direction = "forward")#find a model
+```
+
+
+```{r}
+lm_df <- data.frame()
+
+
+for (i in 1:10) {
+  #create a 70-30 train-test split each iteration
+  lm_indx <- sample(1:nrow(lm_data), round(nrow(lm_data)*.7))
+  lm_train <- lm_data[lm_indx,]
+  lm_test <- lm_data[-lm_indx,]
+  
+  lm_modl <- lm(formula = MonthlyIncome ~BusinessTravel + DailyRate + 
+                  Department + Education + EducationField + 
+                  EnvironmentSatisfaction + Gender + JobInvolvement + 
+                  JobLevel + JobRole + JobSatisfaction + MaritalStatus + MonthlyRate + 
+                  NumCompaniesWorked + OverTime + PercentSalaryHike + PerformanceRating + 
+                  RelationshipSatisfaction + StockOptionLevel + 
+                  TrainingTimesLastYear + WorkLifeBalance + YearsAtCompany + 
+                  YearsInCurrentRole + YearsSinceLastPromotion + YearsWithCurrManager + 
+                  fAge + DailyRate*MaritalStatus + fDistanceFromHome + fHourlyRate + MonthlyRate*Education + 
+                  PercentSalaryHike*DailyRate + fTotalWorkingYears + 
+                  YearsInCurrentRole*JobInvolvement + YearsWithCurrManager*Education + Attrition, 
+                data = lm_data)
+  lm_predic <- predict(lm_modl,lm_test)
+  lm_rmse <- RMSE(lm_predic,lm_test$MonthlyIncome)
+  lm_df <- rbind(lm_df,lm_rmse)
+}
+colnames(lm_df) <- c("RMSE")
+lm_df
+mean(lm_df$RMSE)
 ```
 
