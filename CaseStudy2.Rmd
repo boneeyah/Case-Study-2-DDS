@@ -11,19 +11,20 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 #load libraries
+library(MASS)
 library(caret)
 library(randomForest)
 library(e1071)
 library(tidyverse)
 library(ggthemes)
-library(MASS)
+library(naivebayes)
 
 ```
 
 
-
+Load given dataset with information on over 800 employees.
+Create categorical variables for finding categorical patterns.
 ```{r}
-#load data and wrangle to categorize and level variables
 csdata <- read.csv('CaseStudy2-data.csv')
 
 csdata1 <- csdata %>% mutate(fAge=cut(Age,
@@ -86,13 +87,14 @@ csdata1 <- csdata1 %>% select(1,3:42,2) #rearrange columns
 
 ```
 
+Next, we will determine the top 3 factors by building a NaiveBayes classifier, and finding the importance of each variable in the model.
 ```{r}
 #loop for determining the top 3 factors contributing to attrition
 set.seed(461)
 df <- data.frame()
 for (i in 1:10) {
   train_indx <- sample(1:nrow(csdata1), round(.7*nrow(csdata1)))
-  train_exp <- csdata1[train_indx,1:41]
+  train_exp <- csdata1[train_indx,1:30]
   train_resp <- csdata1[train_indx,42]
   test_nb <- csdata1[-train_indx,]
   
@@ -108,7 +110,9 @@ rownames(df) <- 1:nrow(df)
 
 df %>% group_by(Variable) %>% summarize(Mean=mean(Importance)) %>% arrange(desc(Mean))
 ```
+The previous table shows that Overtime, Monthly Income, and Total Working year have the most weight in determining employee attrition at the company.
 
+Generate visuals showing the proportional comparison of attrition for each of the top 3 variables.
 
 ```{r}
 csdata1 %>% ggplot(aes(x=OverTime, fill=Attrition))+geom_bar(position = "fill")+ggtitle("Attrition Rate for Overtime")+ylab("Proportion")+theme_calc()+theme_calc()+scale_fill_brewer()
@@ -116,7 +120,9 @@ csdata1 %>% ggplot(aes(x=fMonthlyIncome,fill=Attrition))+geom_bar(position = "fi
 csdata1 %>% ggplot(aes(x=fTotalWorkingYears,fill=Attrition))+geom_bar(position = "fill")+ggtitle("Attrition Rate for Total Working Years Ranges")+ylab("Proportion")+theme_calc()+scale_fill_brewer()
 
 ```
+Employees with overtime are about 3 times more likely to leave. THere is a downward trend in attrition for employees with higher salaries, with a small reversal for employees making over 7500 a month.
 
+Fit a NaiveBayes model, tuning for the laplace transform to see if we can achieve a minimum .60 in both specificity and sensitivity.
 
 ```{r}
 #naivebayes
@@ -125,7 +131,7 @@ loop_seq <- seq(0,5,.1)
 df3 <- data.frame()
 for (i in 1:51) {
   df_nb <- data.frame()
-  for (j in 1:50) {
+  for (j in 1:5) {
   csdata2 <- csdata1 %>% select(Attrition,OverTime,MonthlyIncome,TotalWorkingYears,YearsAtCompany,StockOptionLevel,MaritalStatus,JobLevel,YearsInCurrentRole,YearsWithCurrManager,Age,JobInvolvement,JobRole,JobSatisfaction,Department,DistanceFromHome,EnvironmentSatisfaction,WorkLifeBalance,TrainingTimesLastYear,Education,MonthlyRate,NumCompaniesWorked,DailyRate,RelationshipSatisfaction,HourlyRate,YearsSinceLastPromotion,BusinessTravel,EducationField,PercentSalaryHike)
   train_indx <- sample(1:nrow(csdata2), round(.7*nrow(csdata2)))
   train_nb <- csdata2[train_indx,]
@@ -139,13 +145,29 @@ for (i in 1:51) {
   }
   df3 <- rbind(df3,data.frame("mean acc"=mean(df_nb$Accuracy),"mean sens"=mean(df_nb$Sensitivity),"mean spec"=mean(df_nb$Specificity),"laplace"=i))
 }
+
 ```
 
+Curve showing the resulting mean accuracy, sensitivity and specificity for each value of the laplace transform. We can see the models were not able to reach the threshold consistently due to the unbalance in the category being studied (Attrition is 16%, which is significantly smaller than 50%)
+
+```{r}
+df3 %>% ggplot(aes(x=laplace))+
+  geom_line(aes(y=mean.acc,color="Accuracy"))+
+  geom_line(aes(y=mean.spec, color="Specificity"))+
+  geom_line(aes(y=mean.sens,color="Sensitivity"))+
+  theme_calc()+scale_color_manual(
+    values = c("Accuracy"="#074269", "Specificity"="#0EADAB","Sensitivity"="#FA2341"))+
+      ggtitle("NaiveBayes Performance")+
+      ylab("Rate")+
+      xlab("Laplace Transform")
+```
+We will use a Random Forest model which has better performance with unbalanced data.
+We will find a starting value for the mtry parameter using the train function.
 
 ```{r}
 #randomforest
 set.seed(461)
-df_data <- csdata1 #%>% select(1:30,42)
+df_data <- csdata1
 
 train_indx <- sample(1:nrow(df_data), round(.7*nrow(df_data)))
 train_exp <- df_data[train_indx,1:41]
@@ -156,8 +178,10 @@ varImp(rf_train,scale = FALSE)
 
 ```
 
+Fit the model using mtry=16, and adjusting the cutoff values to .68 for no attrition, and .15 for attrition. Create 10 random 70-30 splits to assess model performance.
 ```{r}
-df_data <- csdata1 #%>% select(1:30,42)
+set.seed(1821)
+df_data <- csdata1
 df_rf <- data.frame()
 for (i in 1:10) {
   train_indx <- sample(1:nrow(df_data), round(.7*nrow(df_data)))
@@ -170,29 +194,24 @@ for (i in 1:10) {
   rf_specs <- data.frame("Accuracy"=rf_cm$overall[1],"Sensitivity"=rf_cm$byClass[1],"Specificity"=rf_cm$byClass[2])
   df_rf <- rbind(df_rf,rf_specs)
 }
-df_rf
 
 summary(df_rf)
-```
+df_rf <- df_rf %>% mutate("Iteration"=1:nrow(df_rf))
 
+```
+Plot the model accuracy, specificity and sensitivity over the 10 iterations.
 ```{r}
-df_data <- csdata1 %>% select(1:30,42)
-df_rf <- data.frame()
-for (i in 1:10) {
-  train_indx <- sample(1:nrow(df_data), round(.7*nrow(df_data)))
-  train_rf <- df_data[train_indx,]
-  test_nb <- df_data[-train_indx,]
-  
-  rf <- randomForest(Attrition~.,data = train_rf, mtry=16,ntree=300, cutoff = c(.71,.15))
-  rf_predict <- predict(rf,test_nb)
-  rf_cm <- confusionMatrix(rf_predict,test_nb$Attrition)
-  rf_specs <- data.frame("Accuracy"=rf_cm$overall[1],"Sensitivity"=rf_cm$byClass[1],"Specificity"=rf_cm$byClass[2])
-  df_rf <- rbind(df_rf,rf_specs)
-}
-df_rf
-
-summary(df_rf)
+df_rf %>% ggplot(aes(x=Iteration))+
+  geom_line(aes(y=Accuracy,color="Accuracy"))+
+  geom_line(aes(y=Sensitivity,color="Sensitivity"))+
+  geom_line(aes(y=Specificity,color="Specificity"))+
+  theme_calc()+scale_color_manual(
+    values = c("Accuracy"="#074269", "Specificity"="#0EADAB","Sensitivity"="#FA2341"))+
+      ggtitle("Random Forest Performance")+
+      ylab("Rate")+
+      xlab("Iteration")
 ```
+Use the forward selection automatic method to find ideal variables to include in the model
 
 ```{r}
 #regression for salary
@@ -201,11 +220,11 @@ lm_all <- lm(MonthlyIncome~.,lm_data)
 stepAIC(lm_all,direction = "forward")#find a model
 ```
 
-
+Adjust the model from the selection process, adding interactions and creating 10 random 70-30 splits to assess the model's performance.
 ```{r}
+
+set.seed(766)
 lm_df <- data.frame()
-
-
 for (i in 1:10) {
   #create a 70-30 train-test split each iteration
   lm_indx <- sample(1:nrow(lm_data), round(nrow(lm_data)*.7))
@@ -231,5 +250,11 @@ for (i in 1:10) {
 colnames(lm_df) <- c("RMSE")
 lm_df
 mean(lm_df$RMSE)
+```
+
+Both models are performing up to desired expectations.
+Finally, we will use the fitted models to predict the given test sets.
+```{r}
+
 ```
 
