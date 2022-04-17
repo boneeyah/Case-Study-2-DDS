@@ -1,5 +1,5 @@
 # Case Study 2 - DDS
-Data analysis on attrition rate and salaries for Frito-Lay's employees.
+This github contains the data files used, the code, and the results and presentation of the analysis of attrition rate for Frito-Lay. 
 
 ## Contents
 * [Deliverables](https://github.com/boneeyah/Case-Study-2-DDS/tree/main/Deliverables)
