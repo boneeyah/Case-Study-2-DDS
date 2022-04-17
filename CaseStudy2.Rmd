@@ -8,13 +8,15 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-
+***Attrition and Monthly Incomes***
+Data analysis on attrition rate and monthly incomes for Case Study 2.
 ```{r}
 #load libraries
 library(MASS)
 library(caret)
 library(randomForest)
 library(e1071)
+library(kableExtra)
 library(tidyverse)
 library(ggthemes)
 library(naivebayes)
@@ -108,16 +110,17 @@ for (i in 1:10) {
 colnames(df) <- c("Variable","Importance")
 rownames(df) <- 1:nrow(df)
 
-df %>% group_by(Variable) %>% summarize(Mean=mean(Importance)) %>% arrange(desc(Mean))
+df %>% group_by(Variable) %>% summarize(Mean=mean(Importance)) %>% arrange(desc(Mean)) %>% kable(col.names = c("Variable", "Importance")) %>% 
+  kable_styling(latex_options = c("striped","scale_down")) %>% row_spec(row=0,italic=T,background = "#9d0916",color = "white") %>% column_spec(1:2, width = "0.5in")
 ```
 The previous table shows that Overtime, Monthly Income, and Total Working year have the most weight in determining employee attrition at the company.
 
 Generate visuals showing the proportional comparison of attrition for each of the top 3 variables.
 
 ```{r}
-csdata1 %>% ggplot(aes(x=OverTime, fill=Attrition))+geom_bar(position = "fill")+ggtitle("Attrition Rate for Overtime")+ylab("Proportion")+theme_calc()+theme_calc()+scale_fill_brewer()
-csdata1 %>% ggplot(aes(x=fMonthlyIncome,fill=Attrition))+geom_bar(position = "fill")+ggtitle("Attrition Rate for Monthly Income Ranges")+ylab("Proportion")+theme_calc()+scale_fill_brewer()+xlab("Monthly Income Group")
-csdata1 %>% ggplot(aes(x=fTotalWorkingYears,fill=Attrition))+geom_bar(position = "fill")+ggtitle("Attrition Rate for Total Working Years Ranges")+ylab("Proportion")+theme_calc()+scale_fill_brewer()+xlab("Total Working Years Group")
+csdata1 %>% ggplot(aes(x=OverTime, fill=Attrition))+geom_bar(position = "fill")+ggtitle("Attrition Rate for Overtime")+ylab("Proportion")+theme_calc()+theme_calc()+scale_fill_canva()
+csdata1 %>% ggplot(aes(x=fMonthlyIncome,fill=Attrition))+geom_bar(position = "fill")+ggtitle("Attrition Rate for Monthly Income Ranges")+ylab("Proportion")+theme_calc()+scale_fill_canva()+xlab("Monthly Income Group")
+csdata1 %>% ggplot(aes(x=fTotalWorkingYears,fill=Attrition))+geom_bar(position = "fill")+ggtitle("Attrition Rate for Total Working Years Ranges")+ylab("Proportion")+theme_calc()+scale_fill_canva()+xlab("Total Working Years Group")
 
 ```
 Employees with overtime are about 3 times more likely to leave. THere is a downward trend in attrition for employees with higher salaries, with a small reversal for employees making over 7500 a month.
@@ -249,8 +252,8 @@ for (i in 1:10) {
 }
 colnames(lm_df) <- c("RMSE")
 lm_df <- lm_df %>% mutate("Iteration"=1:nrow(lm_df))
-lm_df
-mean(lm_df$RMSE)
+lm_df %>% kable(col.names=c("RMSE","Iteration")) %>% kable_styling(latex_options = c("striped","scale_down")) %>% row_spec(row=0,italic=T,background = "#9d0916",color="white") %>% column_spec(2,width = "4.3in")
+mean(lm_df$RMSE) %>% kable(col.names = "Mean RMSE") %>% kable_styling(latex_options = c("striped","scale_down")) %>% row_spec(row=0,italic = T,background = "#9d0916",color = 'White')
 ```
 
 ```{r}
