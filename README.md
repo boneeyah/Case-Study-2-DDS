@@ -5,7 +5,7 @@ Data analysis on attrition rate and salaries for Frito Lays employees.
 *[Data Files]
 * [Deliverables]
 * [Markdown File]
-* [Presentation](https://youtu.be/J8LCQuIscLE)
+* [Presentation - Youtube](https://youtu.be/J8LCQuIscLE)
 
 ## Technologies
 Project is craeted with:
